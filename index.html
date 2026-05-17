@@ -322,7 +322,7 @@
         <!-- FLOATING MUSIC ICON -->
         <button id="floating-music-btn" onclick="toggleMusic()"
             class="fixed top-1/2 left-2 md:left-4 transform -translate-y-1/2 z-[65] w-10 h-10 md:w-12 md:h-12 bg-gray-500/90 hover:bg-gray-400 rounded-full flex items-center justify-center text-white shadow-[0_4px_10px_rgba(0,0,0,0.3)] border border-gray-400/30 transition-all cursor-pointer">
-            <i id="music-icon" class="fas fa-music text-base md:text-xl animate-[spin_4s_linear_infinite]"></i>
+            <i id="music-icon" class="fas fa-music text-base md:text-xl"></i>
         </button>
 
         <!-- Navbar Responsif -->
@@ -747,12 +747,15 @@
         // ===================================================================
         const API_URL = "https://script.google.com/macros/s/AKfycbxI4qMc-1rsh9MsbOs2UQ3wqRRpCSI3zZKgf8BA4yL7rIOgYlO4PMg6S4SfwzvCgWVi/exec";
 
-
         // --- VARIABEL GLOBAL & INISIALISASI ---
         let targetDate = new Date("June 1, 2026 09:00:00 GMT+0800").getTime();
         let timerInterval;
+        let isMusicUnlocked = false; // Flag untuk autoplay musik
 
         window.onload = function () {
+            // Inisialisasi pendeteksi Auto-play musik melalui interaksi (scroll/klik/touch)
+            setupAutoPlayMusic();
+
             if (API_URL === "URL_WEB_APP_GAS_ANDA_DISINI" || API_URL === "") {
                 console.warn("⚠️ API URL belum diatur! Menggunakan data simulasi untuk preview.");
                 loadSimulationData();
@@ -801,6 +804,40 @@
                     loadSimulationData(); // Fallback jika internet / API gagal
                 });
         };
+
+        // --- FUNGSI AUTOPLAY MUSIK ---
+        function setupAutoPlayMusic() {
+            const tryPlayMusic = () => {
+                if (isMusicUnlocked) return;
+
+                const bgMusic = document.getElementById('bg-music');
+                const musicIcon = document.getElementById('music-icon');
+
+                if (bgMusic && bgMusic.paused) {
+                    let playPromise = bgMusic.play();
+                    if (playPromise !== undefined) {
+                        playPromise.then(() => {
+                            isMusicUnlocked = true;
+                            if (musicIcon) {
+                                musicIcon.classList.add('animate-[spin_4s_linear_infinite]');
+                            }
+                            // Hapus event listener karena musik sudah berhasil diputar
+                            window.removeEventListener('scroll', tryPlayMusic);
+                            window.removeEventListener('touchstart', tryPlayMusic);
+                            window.removeEventListener('click', tryPlayMusic);
+                        }).catch(error => {
+                            // Jika masih di-block oleh browser, kita tunggu interaksi selanjutnya
+                            console.log("Menunggu interaksi lebih lanjut untuk Autoplay...");
+                        });
+                    }
+                }
+            };
+
+            // Dengarkan interaksi sekecil apapun di seluruh layar (scroll, sentuhan jari, atau klik)
+            window.addEventListener('scroll', tryPlayMusic, { passive: true });
+            window.addEventListener('touchstart', tryPlayMusic, { passive: true });
+            window.addEventListener('click', tryPlayMusic, { passive: true });
+        }
 
         function loadSimulationData() {
             document.getElementById('input-countdown-time').value = "2026-06-01T09:00";
@@ -852,10 +889,14 @@
                 greetingView.classList.remove('hidden');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
 
-                // PUTAR MUSIK OTOMATIS SAAT MASUK HALAMAN SAMBUTAN
+                // Panggilan play music tambahan di sini memastikan jika user menekan tombol masuk namun belum scroll sama sekali
                 const bgMusic = document.getElementById('bg-music');
-                if (bgMusic) {
-                    bgMusic.play().catch(err => console.log("Autoplay dicegah browser: ", err));
+                const musicIcon = document.getElementById('music-icon');
+                if (bgMusic && bgMusic.paused && !isMusicUnlocked) {
+                    bgMusic.play().then(() => {
+                        isMusicUnlocked = true;
+                        if (musicIcon) musicIcon.classList.add('animate-[spin_4s_linear_infinite]');
+                    }).catch(err => console.log("Autoplay dicegah browser: ", err));
                 }
             }, 1000);
         }
@@ -864,6 +905,9 @@
         function toggleMusic() {
             const bgMusic = document.getElementById('bg-music');
             const musicIcon = document.getElementById('music-icon');
+
+            // Jika disetting manual oleh user, kita anggap sudah unlocked agar scroll tidak memutar paksa kembali
+            isMusicUnlocked = true;
 
             if (bgMusic.paused) {
                 bgMusic.play();
